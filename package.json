@@ -1,6 +1,6 @@
 {
   "name": "relay-mongoose",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "repository": "https://github.com/wadamek65/relay-mongoose.git",
   "author": "wadamek65 <wadamek65@gmail.com>",
   "license": "MIT",
@@ -44,6 +44,10 @@
       "wa"
     ]
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts"
 }
