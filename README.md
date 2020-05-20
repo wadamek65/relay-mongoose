@@ -4,7 +4,7 @@
 It provides a class that enhanced the base `mongoose.Model` with a few relay helpers.
 
 ## Usage
-# `EnhancedModel`
+### `EnhancedModel`
 Use mongoose `loadClass()` method as [described here](https://mongoosejs.com/docs/guide.html#es6-classes).
 ```typescript
 import * as mongoose from 'mongoose';
@@ -54,7 +54,7 @@ const result = await TestModel.findConnections({}, {});
 ```
 Note that the id returned in each node is already a base64 encoded string returned from `document.relayId` utility.
 
-# `relayId`
+### `relayId`
 As shown in the previous example, all documents returned by `findConnections` have a modified id which is
 the base64 encoded concatenation of model name and object ID by a dot.
 
