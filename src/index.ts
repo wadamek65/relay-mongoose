@@ -37,13 +37,15 @@ export interface EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> ex
 	): Promise<ConnectionDocuments<T>>;
 }
 
-export const fromRelayId = (id: string): { modelName: string; objectId: string } => {
+export const fromRelayId = (id: string): { modelName: string | null; objectId: string | null } => {
+	if (!id) {
+		return { modelName: null, objectId: null };
+	}
+
 	const original = Buffer.from(id, 'base64').toString('utf-8');
 	const [modelName, objectId] = original.split('.');
 	if (objectId === undefined) {
-		throw new Error(
-			'Invalid id string. Should be a base64 encoded string containing model name and object ID concatenated by `.`'
-		);
+		return { modelName: null, objectId: null };
 	}
 
 	return { modelName, objectId };
@@ -64,9 +66,11 @@ export class EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> {
 		projection?: any | null
 	): Promise<ConnectionDocuments<T>> {
 		const { before, after, first, last } = paginationArgs;
+		const { objectId: beforeObjectId } = fromRelayId(before);
+		const { objectId: afterObjectId } = fromRelayId(after);
 		const idQuery = {
-			...(before ? { $lt: mongoose.Types.ObjectId(before) } : {}),
-			...(after ? { $gt: mongoose.Types.ObjectId(after) } : {})
+			...(beforeObjectId !== null ? { $lt: mongoose.Types.ObjectId(beforeObjectId) } : {}),
+			...(afterObjectId !== null ? { $gt: mongoose.Types.ObjectId(afterObjectId) } : {})
 		};
 
 		const query = {
@@ -103,15 +107,15 @@ export class EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> {
 			hasPreviousPage,
 			...(data.length > 0
 				? {
-						startCursor: data[0].id,
-						endCursor: data[data.length - 1].id
+						startCursor: data[0].relayId,
+						endCursor: data[data.length - 1].relayId
 				  }
 				: {})
 		};
 
 		return {
 			edges: data.map(edge => ({
-				cursor: edge.id,
+				cursor: edge.relayId,
 				node: edge
 			})),
 			pageInfo

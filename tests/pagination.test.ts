@@ -29,8 +29,8 @@ describe('relay-mongoose tests', () => {
 		TestModel = mongoose.model('test', testSchema) as any;
 		docs = [...Array(15)].map(() => new TestModel({ field: value }));
 		await TestModel.insertMany(docs);
-		firstId = docs[0].id;
-		lastId = docs[docs.length - 1].id;
+		firstId = docs[0].relayId;
+		lastId = docs[docs.length - 1].relayId;
 	});
 
 	afterEach(async () => {
@@ -59,7 +59,7 @@ describe('relay-mongoose tests', () => {
 
 		it('should return a custom relay Id', async () => {
 			const result = await TestModel.findOne({ field: value }, {});
-			expect(result.relayId).not.to.equal(result.id);
+			expect(result.id).not.to.equal(result.relayId);
 			expect(result.relayId)
 				.to.equal(Buffer.from(`${TestModel.modelName}.${result.id}`).toString('base64'))
 				.to.equal(Buffer.from(`test.${result.id}`).toString('base64'));
@@ -73,15 +73,11 @@ describe('relay-mongoose tests', () => {
 			expect(objectId).to.equal(fakeObjectId);
 		});
 
-		it('should throw error when decoding invalid relayId', async () => {
+		it('should return null when decoding invalid relayId', async () => {
 			const fakeModelName = 'fakeModel';
-			try {
-				fromRelayId(Buffer.from(fakeModelName).toString('base64'));
-			} catch (e) {
-				expect(e.toString()).to.equal(
-					'Error: Invalid id string. Should be a base64 encoded string containing model name and object ID concatenated by `.`'
-				);
-			}
+			const { objectId, modelName } = fromRelayId(Buffer.from(fakeModelName).toString('base64'));
+			expect(objectId).to.equal(null);
+			expect(modelName).to.equal(null);
 		});
 	});
 
@@ -96,7 +92,7 @@ describe('relay-mongoose tests', () => {
 			expect(result.pageInfo.startCursor).to.equal(result.edges[0].cursor).to.equal(firstId);
 			expect(result.pageInfo.endCursor)
 				.to.equal(result.edges[amount - 1].cursor)
-				.to.equal(docs[amount - 1].id);
+				.to.equal(docs[amount - 1].relayId);
 			expect(result.pageInfo.hasPreviousPage).to.equal(false);
 			expect(result.pageInfo.hasNextPage).to.equal(true);
 		});
@@ -110,7 +106,7 @@ describe('relay-mongoose tests', () => {
 			expect(result.edges.length).to.equal(amount);
 			expect(result.pageInfo.startCursor)
 				.to.equal(result.edges[result.edges.length - amount].cursor)
-				.to.equal(docs[docs.length - amount].id);
+				.to.equal(docs[docs.length - amount].relayId);
 			expect(result.pageInfo.endCursor)
 				.to.equal(result.edges[result.edges.length - 1].cursor)
 				.to.equal(lastId);
@@ -121,12 +117,12 @@ describe('relay-mongoose tests', () => {
 		it('should return edges before and after cursors', async () => {
 			const afterIndex = 5;
 			const beforeIndex = 10;
-			const args = { after: docs[afterIndex].id, before: docs[beforeIndex].id };
+			const args = { after: docs[afterIndex].relayId, before: docs[beforeIndex].relayId };
 
 			const result = await TestModel.findConnections({ field: value }, args);
 			expect(result.edges.length).to.equal(beforeIndex - afterIndex - 1);
-			expect(result.pageInfo.endCursor).to.equal(docs[beforeIndex - 1].id);
-			expect(result.pageInfo.startCursor).to.equal(docs[afterIndex + 1].id);
+			expect(result.pageInfo.endCursor).to.equal(docs[beforeIndex - 1].relayId);
+			expect(result.pageInfo.startCursor).to.equal(docs[afterIndex + 1].relayId);
 		});
 
 		describe('after tests', () => {
@@ -135,34 +131,34 @@ describe('relay-mongoose tests', () => {
 
 			it('should return all edges after cursor', async () => {
 				const amount = 5;
-				const args = { after: docs[amount - 1].id };
+				const args = { after: docs[amount - 1].relayId };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(docs.length - amount);
 				expect(result.pageInfo.endCursor).to.equal(lastId);
-				expect(result.pageInfo.startCursor).to.equal(docs[amount].id);
+				expect(result.pageInfo.startCursor).to.equal(docs[amount].relayId);
 				expect(result.pageInfo.hasNextPage).to.equal(false);
 			});
 
 			it('should return first 5 edges after cursor', async () => {
 				const amount = 5;
-				const args = { after: docs[amount - 1].id, first: amount };
+				const args = { after: docs[amount - 1].relayId, first: amount };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(amount);
-				expect(result.pageInfo.endCursor).to.equal(docs[amount + amount - 1].id);
-				expect(result.pageInfo.startCursor).to.equal(docs[amount].id);
+				expect(result.pageInfo.endCursor).to.equal(docs[amount + amount - 1].relayId);
+				expect(result.pageInfo.startCursor).to.equal(docs[amount].relayId);
 				expect(result.pageInfo.hasNextPage).to.equal(true);
 			});
 
 			it('should return last 5 edges after cursor', async () => {
 				const amount = 5;
-				const args = { after: docs[amount - 1].id, last: amount };
+				const args = { after: docs[amount - 1].relayId, last: amount };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(amount);
 				expect(result.pageInfo.endCursor).to.equal(lastId);
-				expect(result.pageInfo.startCursor).to.equal(docs[docs.length - amount].id);
+				expect(result.pageInfo.startCursor).to.equal(docs[docs.length - amount].relayId);
 				expect(result.pageInfo.hasPreviousPage).to.equal(true);
 				expect(result.pageInfo.hasNextPage).to.equal(false);
 			});
@@ -174,38 +170,38 @@ describe('relay-mongoose tests', () => {
 
 			it('should return all edges before cursor', async () => {
 				const amount = 5;
-				const args = { before: docs[amount].id };
+				const args = { before: docs[amount].relayId };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(amount);
-				expect(result.pageInfo.startCursor).to.equal(docs[0].id);
-				expect(result.pageInfo.endCursor).to.equal(docs[amount - 1].id);
+				expect(result.pageInfo.startCursor).to.equal(docs[0].relayId);
+				expect(result.pageInfo.endCursor).to.equal(docs[amount - 1].relayId);
 				expect(result.pageInfo.hasPreviousPage).to.equal(false);
 			});
 
 			it('should return first 5 edges before cursor', async () => {
 				const amount = 5;
 				const beforeIndex = 10;
-				const beforeId = docs[beforeIndex].id;
+				const beforeId = docs[beforeIndex].relayId;
 				const args = { before: beforeId, first: amount };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(amount);
-				expect(result.pageInfo.endCursor).to.equal(docs[amount - 1].id);
-				expect(result.pageInfo.startCursor).to.equal(docs[0].id);
+				expect(result.pageInfo.endCursor).to.equal(docs[amount - 1].relayId);
+				expect(result.pageInfo.startCursor).to.equal(docs[0].relayId);
 				expect(result.pageInfo.hasNextPage).to.equal(true);
 			});
 
 			it('should return last 5 edges before cursor', async () => {
 				const amount = 5;
 				const beforeIndex = 10;
-				const beforeId = docs[beforeIndex].id;
+				const beforeId = docs[beforeIndex].relayId;
 				const args = { before: beforeId, last: amount };
 
 				const result = await TestModel.findConnections({ field: value }, args);
 				expect(result.edges.length).to.equal(amount);
-				expect(result.pageInfo.endCursor).to.equal(docs[beforeIndex - 1].id);
-				expect(result.pageInfo.startCursor).to.equal(docs[beforeIndex - amount].id);
+				expect(result.pageInfo.endCursor).to.equal(docs[beforeIndex - 1].relayId);
+				expect(result.pageInfo.startCursor).to.equal(docs[beforeIndex - amount].relayId);
 				expect(result.pageInfo.hasPreviousPage).to.equal(true);
 			});
 		});
