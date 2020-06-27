@@ -1,4 +1,4 @@
-import { Document, FilterQuery } from 'mongoose';
+import { Document, DocumentQuery, FilterQuery } from 'mongoose';
 import * as mongoose from 'mongoose';
 
 export type Cursor = string;
@@ -15,14 +15,16 @@ export interface Edge<T> {
 	node: T;
 }
 
+export type PageInfo = {
+	startCursor?: Cursor;
+	endCursor?: Cursor;
+	hasNextPage: boolean;
+	hasPreviousPage: boolean;
+};
+
 export interface ConnectionDocuments<T> {
 	edges: Edge<T>[];
-	pageInfo: {
-		startCursor?: Cursor;
-		endCursor?: Cursor;
-		hasNextPage: boolean;
-		hasPreviousPage: boolean;
-	};
+	pageInfo: PageInfo;
 }
 
 export interface EnhancedDocument extends Document {
@@ -37,7 +39,8 @@ export interface EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> ex
 	): Promise<ConnectionDocuments<T>>;
 }
 
-export const fromRelayId = (id: string): { modelName: string | null; objectId: string | null } => {
+export type DecodedRelayId = { modelName: string | null; objectId: string | null };
+export const fromRelayId = (id: string | null | undefined): DecodedRelayId => {
 	if (!id) {
 		return { modelName: null, objectId: null };
 	}
@@ -51,21 +54,67 @@ export const fromRelayId = (id: string): { modelName: string | null; objectId: s
 	return { modelName, objectId };
 };
 
+const paginate = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
+	dataQuery: DocumentQuery<DocType | DocType[] | null, any, QueryHelpers> & QueryHelpers,
+	{ first, last }: PaginationArgs
+): Promise<ConnectionDocuments<DocType>> => {
+	const pageInfo: PageInfo = {
+		hasNextPage: false,
+		hasPreviousPage: false
+	};
+
+	let data;
+	if (first !== undefined) {
+		data = await dataQuery
+			.sort({ _id: 1 })
+			.limit(first + 1)
+			.exec();
+		if (data.length > first) {
+			pageInfo.hasNextPage = true;
+			data.pop();
+		}
+	} else if (last !== undefined) {
+		data = await dataQuery
+			.sort({ _id: -1 })
+			.limit(last + 1)
+			.exec();
+		if (data.length > last) {
+			pageInfo.hasPreviousPage = true;
+			data.pop();
+		}
+		data.reverse();
+	} else {
+		data = await dataQuery.sort({ _id: 1 }).exec();
+	}
+
+	if (data.length > 0) {
+		pageInfo.startCursor = data[0].relayId;
+		pageInfo.endCursor = data[data.length - 1].relayId;
+	}
+
+	return {
+		edges: data.map(edge => ({
+			cursor: edge.relayId,
+			node: edge
+		})),
+		pageInfo
+	};
+};
+
 export class EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> {
 	get relayId() {
 		// Ignoring TS errors about `this` access as this is intended paradigm as defined by mongoose documentation:
 		// https://mongoosejs.com/docs/guide.html#virtuals
 		// eslint-disable-next-line
-		// @ts-ignore
+    // @ts-ignore
 		return Buffer.from(`${this.constructor.modelName}.${this._id.toString()}`).toString('base64');
 	}
 
 	static async findConnections<T extends Document>(
 		conditions: FilterQuery<T>,
-		paginationArgs: PaginationArgs,
+		{ before, after, first, last }: PaginationArgs,
 		projection?: any | null
 	): Promise<ConnectionDocuments<T>> {
-		const { before, after, first, last } = paginationArgs;
 		const { objectId: beforeObjectId } = fromRelayId(before);
 		const { objectId: afterObjectId } = fromRelayId(after);
 		const idQuery = {
@@ -79,46 +128,27 @@ export class EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> {
 		};
 
 		// eslint-disable-next-line
-		// @ts-ignore
-		const count = await this.find(query).countDocuments();
-		// eslint-disable-next-line
-		// @ts-ignore
+    // @ts-ignore
 		const dataQuery = this.find(query, projection);
-
-		let hasNextPage = false;
-		let hasPreviousPage = false;
-
-		if (first !== undefined && first < count) {
-			dataQuery.limit(first);
-			hasNextPage = true;
-		}
-
-		if (last !== undefined && last < count) {
-			dataQuery.skip(count - last);
-			hasPreviousPage = true;
-			if (hasNextPage) {
-				hasNextPage = false;
-			}
-		}
-
-		const data = await dataQuery;
-		const pageInfo = {
-			hasNextPage,
-			hasPreviousPage,
-			...(data.length > 0
-				? {
-						startCursor: data[0].relayId,
-						endCursor: data[data.length - 1].relayId
-				  }
-				: {})
-		};
-
-		return {
-			edges: data.map(edge => ({
-				cursor: edge.relayId,
-				node: edge
-			})),
-			pageInfo
-		};
+		return paginate<any>(dataQuery, { first, last });
 	}
 }
+
+export const findConnections = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
+	documentQuery: DocumentQuery<DocType | DocType[] | null, any, QueryHelpers> & QueryHelpers,
+	{ before, after, first, last }: PaginationArgs,
+	projection?: any | null
+): Promise<ConnectionDocuments<DocType>> => {
+	const { objectId: beforeObjectId } = fromRelayId(before);
+	const { objectId: afterObjectId } = fromRelayId(after);
+	const idQuery = {
+		...(beforeObjectId !== null ? { $lt: mongoose.Types.ObjectId(beforeObjectId) } : {}),
+		...(afterObjectId !== null ? { $gt: mongoose.Types.ObjectId(afterObjectId) } : {})
+	};
+
+	const query = {
+		...(Object.keys(idQuery).length === 0 ? {} : { _id: idQuery })
+	};
+
+	return paginate(documentQuery.find(query, projection), { first, last });
+};
