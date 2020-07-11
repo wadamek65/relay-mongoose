@@ -134,8 +134,8 @@ export class EnhancedModel<T extends EnhancedDocument, QueryHelpers = {}> {
 	}
 }
 
-export const findConnections = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
-	documentQuery: DocumentQuery<DocType | DocType[] | null, any, QueryHelpers>,
+export const findConnections = async <DocType extends EnhancedDocument>(
+	documentQuery: DocumentQuery<DocType | DocType[] | null, any>,
 	{ before, after, first, last }: PaginationArgs,
 	projection?: any | null
 ): Promise<ConnectionDocuments<DocType>> => {
