@@ -78,6 +78,23 @@ const Query = {
 };
 ```
 
+### `findConnections` standalone function
+There is also a standalone `findConnections` function to which as the first argument you can pass a mongoose 
+query for more flexibility. For example:
+
+```typescript
+import * as mongoose from 'mongoose';
+import { EnhancedModel, findConnections } from 'relay-mongoose';
+
+const TestModel: EnhancedModel<any> = mongoose.model('test', testSchema) as any;
+
+const firstQuery = TestModel.find({ condition: 2 }).populate(...);
+const paginatedData = await findConnections(firstQuery, { first: 10 });
+```
+
+Please note that the query passed as the first argument has to have extended the `EnhancedModel` class
+as `relayId` property is needed for correct mapping.
+
 ## API
 
 ### `EnhancedModel.findConnections`
@@ -129,5 +146,13 @@ type fromRelayId = (id: string) => { modelName: string | null; objectId: string 
 
 The reverse operation of `EnhancedModel.relayId`. Returns `null` if invalid id is provided.
 
+### `findConnections`
+```typescript
+export const findConnections = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
+	documentQuery: DocumentQuery<DocType | DocType[] | null, any, QueryHelpers> & QueryHelpers,
+	{ before, after, first, last }: PaginationArgs,
+	projection?: any | null
+): Promise<ConnectionDocuments<DocType>>
+```
 ## License
 MIT
