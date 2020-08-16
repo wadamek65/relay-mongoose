@@ -57,6 +57,17 @@ describe('relay-mongoose tests', () => {
 			expect(result.pageInfo.hasNextPage).to.equal(false);
 		});
 
+		it('should accept null pagination args and return everything', async () => {
+			const result = await TestModel.findConnections({ field: value }, { first: null, last: null });
+			expect(result.edges.length).to.equal(docs.length);
+			expect(result.pageInfo.startCursor).to.equal(result.edges[0].cursor).to.equal(firstId);
+			expect(result.pageInfo.endCursor)
+				.to.equal(result.edges[result.edges.length - 1].cursor)
+				.to.equal(lastId);
+			expect(result.pageInfo.hasPreviousPage).to.equal(false);
+			expect(result.pageInfo.hasNextPage).to.equal(false);
+		});
+
 		it('should return a custom relay Id', async () => {
 			const result = await TestModel.findOne({ field: value }, {});
 			expect(result.id).not.to.equal(result.relayId);

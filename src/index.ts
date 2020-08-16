@@ -4,10 +4,10 @@ import * as mongoose from 'mongoose';
 export type Cursor = string;
 
 export interface PaginationArgs {
-	first?: number;
-	last?: number;
-	before?: Cursor;
-	after?: Cursor;
+	first?: number | null;
+	last?: number | null;
+	before?: Cursor | null;
+	after?: Cursor | null;
 }
 
 export interface Edge<T> {
@@ -55,16 +55,16 @@ export const fromRelayId = (id: string | null | undefined): DecodedRelayId => {
 };
 
 const paginate = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
-	dataQuery: DocumentQuery<DocType | DocType[] | null, any, QueryHelpers> & QueryHelpers,
+	dataQuery: DocumentQuery<DocType[], DocType, QueryHelpers> & QueryHelpers,
 	{ first, last }: PaginationArgs
 ): Promise<ConnectionDocuments<DocType>> => {
 	const pageInfo: PageInfo = {
 		hasNextPage: false,
 		hasPreviousPage: false
-	};
+	};3
 
 	let data;
-	if (first !== undefined) {
+	if (first !== undefined && first !== null) {
 		data = await dataQuery
 			.sort({ _id: 1 })
 			.limit(first + 1)
@@ -73,7 +73,7 @@ const paginate = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
 			pageInfo.hasNextPage = true;
 			data.pop();
 		}
-	} else if (last !== undefined) {
+	} else if (last !== undefined && last !== null) {
 		data = await dataQuery
 			.sort({ _id: -1 })
 			.limit(last + 1)
