@@ -1,4 +1,7 @@
 # relay-mongoose
+## Note
+This project is an initial, minimal implementation of integrating relay pagination with mongoose. It works and was tested, but has a few edge-cases, some of which are noted in the issues. As I will not be developing this any further, this will remain archived and hopefully it can at least serve as an example for an implementation in your own projects. [See this issue for some more details](https://github.com/wadamek65/relay-mongoose/issues/8#issuecomment-776907650).
+
 ## About
 `relay-mongoose` is a small library with a few utilities to make implementing [relay compliant server easier](https://relay.dev/docs/en/graphql-server-specification.html).
 It provides a class that enhanced the base `mongoose.Model` with a few relay helpers.
