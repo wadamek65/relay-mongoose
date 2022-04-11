@@ -61,7 +61,7 @@ const paginate = async <DocType extends EnhancedDocument, QueryHelpers = {}>(
 	const pageInfo: PageInfo = {
 		hasNextPage: false,
 		hasPreviousPage: false
-	};3
+	};
 
 	let data;
 	if (first !== undefined && first !== null) {
